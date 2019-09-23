@@ -39,7 +39,8 @@
 #include "hw/intc/intc.h"
 #include "migration/migration.h"
 #include "migration/group_ft.h"
-
+#include "migration/cuju-kvm-share-mem.h"
+#include "migration/cuju-ft-trans-file.h"
 #ifdef CONFIG_SPICE
 #include <spice/enums.h>
 #endif
@@ -2774,4 +2775,18 @@ void hmp_gft_add_backup(Monitor *mon, const QDict *qdict){
         error_free(err);
         return;
     }
+}
+
+void hmp_cuju_ft_started(Monitor *mon, const QDict *qdict) 
+{
+    monitor_printf(mon, "ft_started: %d\n", ft_started);
+
+    return;
+}
+
+void hmp_cuju_ft_mode(Monitor *mon, const QDict *qdict)
+{
+    monitor_printf(mon, "cuju_ft_mode: %d\n", (unsigned int)cuju_ft_mode);
+    
+    return;
 }

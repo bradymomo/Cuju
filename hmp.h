@@ -147,5 +147,7 @@ void hmp_migrate_resume(Monitor *mon, const QDict *qdict);
 void hmp_gft_member_live_mig(Monitor *mon, const QDict *qdict);
 void hmp_gft_add_member(Monitor *mon, const QDict *qdict);
 void hmp_gft_add_backup(Monitor *mon, const QDict *qdict);
+void hmp_cuju_ft_started(Monitor *mon, const QDict *qdict);
+void hmp_cuju_ft_mode(Monitor *mon, const QDict *qdict);
 
 #endif
