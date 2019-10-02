@@ -2779,7 +2779,7 @@ void hmp_gft_add_backup(Monitor *mon, const QDict *qdict){
 
 void hmp_cuju_ft_started(Monitor *mon, const QDict *qdict) 
 {
-    monitor_printf(mon, "ft_started: %d\n", ft_started);
+    monitor_printf(mon, "ft_started: %d\n", show_ft_started());
 
     return;
 }
