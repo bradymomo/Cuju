@@ -1385,6 +1385,11 @@ struct kvmft_set_master_slave_sockets {
 
 #define KVMFT_RESTORE_PREVIOUS_EPOCH      _IOW(KVMIO,0xd1,void *)
 #define KVM_SHM_CANCEL_TIMER       _IO(KVMIO, 0xd2)
+struct cur_off_and_i {
+  int cur_off;
+  int i;
+};
+#define KVM_GET_ITH_DLIST_ELEMENT         _IOW(KVMIO,  0xdc, struct cur_off_and_i)
 
 #define KVM_DEV_ASSIGN_ENABLE_IOMMU	(1 << 0)
 #define KVM_DEV_ASSIGN_PCI_2_3		(1 << 1)
