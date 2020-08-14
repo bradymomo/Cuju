@@ -3075,10 +3075,11 @@ int qemu_loadvm_dev(QEMUFile *f)
             goto out;
         }
         g_free(f->buf);
-        f->buf = g_malloc(IO_BUF_SIZE);
         f->buf_index = 0;
         f->buf_size = 0;
     }
+
+    f->buf = g_malloc(IO_BUF_SIZE);
 
     cpu_synchronize_all_post_init();
 out:
