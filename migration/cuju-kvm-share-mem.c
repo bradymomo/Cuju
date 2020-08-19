@@ -771,11 +771,12 @@ static struct trackable_ptr {
 	void *ptr;
 	unsigned int size;
 	unsigned int registered;
-} trackable_ptrs[TRACKABLE_ARRAY_LEN];
+} *trackable_ptrs;
 
 static QemuMutex trackable_ptrs_mutex;
 
 static int trackable_number = 0;
+static int trackable_array_len = TRACKABLE_ARRAY_LEN;
 static char trackable_bitmap[KVM_SHM_REPORT_TRACKABLE_COUNT/8];
 
 
@@ -785,6 +786,13 @@ void *kvm_shmem_alloc_trackable(unsigned int size)
 	struct trackable_ptr *ptr = NULL;
 	static int init = 0;
 	static int count = 0;
+
+    if (trackable_ptrs == NULL) {
+        trackable_ptrs = g_malloc0(trackable_array_len * sizeof(struct trackable_ptr));
+    } else if (count >= trackable_array_len) {
+        trackable_array_len *= 2;
+        trackable_ptrs = g_realloc(trackable_ptrs , trackable_array_len * sizeof(struct trackable_ptr));
+    }
 
 	// kvm won't compile on blk_server, so..
 #ifdef CONFIG_NO_TRACK_OBJ
@@ -800,7 +808,7 @@ void *kvm_shmem_alloc_trackable(unsigned int size)
 	size = (size / 4096) * 4096 + (size % 4096 ? 4096 : 0);
 
 	qemu_mutex_lock(&trackable_ptrs_mutex);
-	for (i = 0; i < TRACKABLE_ARRAY_LEN; ++i) {
+	for (i = 0; i < trackable_array_len; ++i) {
 		if (trackable_ptrs[i].ptr == NULL) {
 			ptr = &trackable_ptrs[i];
 			ptr->ptr = (void *)0xffffffff;
@@ -845,7 +853,7 @@ void kvm_shmem_free_trackable(void *ptr)
 #endif
 
 	qemu_mutex_lock(&trackable_ptrs_mutex);
-	for (i = 0; i < TRACKABLE_ARRAY_LEN; ++i) {
+	for (i = 0; i < trackable_array_len; ++i) {
 		tptr = &trackable_ptrs[i];
 		if (tptr->ptr == ptr) {
 			ret = munmap(ptr, tptr->size);
@@ -879,7 +887,7 @@ void kvm_shmem_vmstate_register_callback(void *opaque)
 		return;
 	}
 
-	for (i = 0; i < TRACKABLE_ARRAY_LEN; ++i) {
+	for (i = 0; i < trackable_array_len; ++i) {
 		tptr = &trackable_ptrs[i];
 		if (tptr->ptr) {
 			if (tptr->ptr <= opaque && tptr->ptr + tptr->size > opaque) {
@@ -901,7 +909,7 @@ void kvm_shmem_sortup_trackable(void)
 
 	j = 0;
     if(trackable_number == 0){
-	for (i = 0; i < TRACKABLE_ARRAY_LEN; ++i) {
+	for (i = 0; i < trackable_array_len; ++i) {
 		tptr = &trackable_ptrs[i];
 		if (tptr->registered) {
 			memcpy(&trackable_ptrs[j], tptr, sizeof(*tptr));
@@ -924,8 +932,8 @@ void kvm_shmem_sortup_trackable(void)
         }
     }
 
-	if (trackable_number > 32) {
-		printf("%s trackable_number exceed 32 bit, create a larger bitmap.\n",
+	if (trackable_number > 64) {
+		printf("%s trackable_number exceed 64 bit, create a larger bitmap.\n",
 					__func__);
 		exit(-1);
 	}
