@@ -50,7 +50,19 @@
 static unsigned long trans_serial = 0;
 static unsigned long run_serial = 0;
 static int last_enter = 0;
+static unsigned long current_trans_gfn = 0;
 bool backup_die = false;
+static bool fake_ft_mode = false;
+#ifdef ASYNC_INIT_MIGRATION
+    static bool startfakeft = false;
+    static bool pagediff = false;
+#endif
+#define FAKEFT_ONETIME_DIRTY_PAGE 1000
+
+//static unsigned long pc_ram_start = 0;
+static unsigned long pc_ram_end = 0;
+
+
 #ifdef DEBUG_MIGRATION
 #define DPRINTF(fmt, ...) \
     do { printf("migration: " fmt, ## __VA_ARGS__); } while (0)
@@ -2572,9 +2584,13 @@ static void *migration_thread(void *opaque)
     trace_migration_thread_setup_complete();
 
 	if(enable_cuju) {
+
 		printf("Start system memory backup\n");
 		migration_completion(s, current_active_state,
                &old_vm_running, &start_time);
+    #ifdef ASYNC_INIT_MIGRATION
+		pc_ram_end = find_max_ram_gfn();
+    #endif
 	}
 
     while (s->state == MIGRATION_STATUS_ACTIVE ||
@@ -2690,6 +2706,7 @@ static void *migration_thread(void *opaque)
         assert(!kvmft_set_master_slave_sockets(s, ft_ram_conn_count));
         assert(!kvmft_set_master_slave_sockets(s2, ft_ram_conn_count));
 
+
 		return NULL;
     }
     else {
@@ -2735,6 +2752,7 @@ static void *migration_thread(void *opaque)
 
     	rcu_unregister_thread();
     }
+
 
     return NULL;
 }
@@ -2844,13 +2862,13 @@ void alloc_ft_dev(MigrationState *s)
     s->ft_dev->ft_dev_file->free_buf_on_flush = true;
 }
 
-int migrate_save_device_states_to_memory_advanced(void *opaque, int more)
+int migrate_save_device_states_to_memory_advanced(void *opaque, int more, bool fake_ft_mode)
 {
     MigrationState *s = opaque;
     int ret = -1;
 
     do {
-        if ((ret = qemu_savevm_trans_complete_precopy_advanced(s->ft_dev, more)) < 0) {
+        if ((ret = qemu_savevm_trans_complete_precopy_advanced(s->ft_dev, more, fake_ft_mode)) < 0) {
             fprintf(stderr, "qemu_savevm_trans_complete_advanced failed %d\n", ret);
             abort();
             goto out;
@@ -3004,10 +3022,29 @@ static void migrate_timer(void *opaque)
     MigrationState *s = opaque;
 
     assert(s == migrate_get_current());
+#ifdef ASYNC_INIT_MIGRATION
+    if (!startfakeft){
+        fake_ft_mode = true;
+        startfakeft = true;
+        
+        //Because some specific guest OS img can't not work well after failover  
+        //while sending pc.ram gfn175-190 at the fakeft part.
+        //So,we need to send pc.ram gfn 0-200 here first and send other at the fakeft part 
+        //to avoid the above problem.
 
+        //pc_ram_end = 190;
+        current_trans_gfn = 201;
+        kvmft_page_diff_start(0);
+    }
+#endif    
 #ifndef ft_debug_mode_enable
     if ((trans_serial & 0x03f) == 0) {
-        printf("\n%s tick %lu\n", __func__, trans_serial);
+        if (!fake_ft_mode){
+            printf("\n%s tick %lu\n", __func__, trans_serial);
+        } else {
+            printf("\nAsynchronous transfer of the memory pages %lu %% \n", current_trans_gfn * 100 / pc_ram_end);
+        }
+        
     }
 #else
     printf("\n%s %p(%d) runstage(ms) %d\n", __func__, s, migrate_get_index(s),
@@ -3017,14 +3054,34 @@ static void migrate_timer(void *opaque)
     migrate_token_owner = NULL;
 
     s->trans_serial = ++trans_serial;
-
+	
     qemu_mutex_lock_iothread();
     vm_stop_mig();
     qemu_iohandler_ft_pause(true);
 
+#ifdef ASYNC_INIT_MIGRATION
+
+    
+	if (fake_ft_mode){
+        if (current_trans_gfn < (pc_ram_end - FAKEFT_ONETIME_DIRTY_PAGE)){
+            write_additional_dirty_page(current_trans_gfn,current_trans_gfn + FAKEFT_ONETIME_DIRTY_PAGE);
+            current_trans_gfn = current_trans_gfn + FAKEFT_ONETIME_DIRTY_PAGE;
+        } else {
+            write_additional_dirty_page(current_trans_gfn, pc_ram_end);
+            fake_ft_mode = false;           
+        }		
+	} else if (!pagediff){
+        pagediff = true;
+        kvmft_page_diff_start(1);
+        printf("page_diff_open");
+    }
+#endif 
+
+
     s->flush_vs_commit1 = false;
     s->transfer_start_time = time_in_double();
     s->ram_len = 0;
+
     kvm_shmem_send_dirty_kernel(s);
 
     dirty_page_tracking_logs_start_transfer(s);
@@ -3040,7 +3097,7 @@ static void migrate_timer(void *opaque)
     s->time_buf_off += sprintf(s->time_buf+s->time_buf_off, "\t%.4lf", (s->snapshot_start_time-s->run_real_start_time)*1000);
 
     assert(kvm_shmem_collect_trackable_dirty() >= 0);
-    assert(!migrate_save_device_states_to_memory_advanced(s, 0));
+    assert(!migrate_save_device_states_to_memory_advanced(s, 0, fake_ft_mode));
     s->virtio_blk_temp_list = virtio_blk_get_temp_list();
     kvm_shmem_trackable_dirty_reset();
     migrate_ft_trans_send_device_state_header(s->ft_dev, s->file);
@@ -3092,4 +3149,9 @@ void kvmft_tick_func(void)
         return;
 
     ft_tick_func();
+}
+
+bool return_fake_ft_mode(void)
+{
+	return fake_ft_mode;
 }

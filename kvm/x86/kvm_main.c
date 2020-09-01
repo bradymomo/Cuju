@@ -3503,6 +3503,14 @@ out_free_irq_routing:
         r = kvmft_ioctl_set_master_slave_sockets(kvm, &socks);
         break;
     }
+	case KVM_START_PAGE_DIFF: {
+		bool page_diff_open;
+        r = -EFAULT;
+        if (copy_from_user(&page_diff_open, argp, sizeof page_diff_open))
+            goto out;
+        r = kvm_start_page_diff(kvm, page_diff_open);
+        break;
+    }
 	default:
 		r = kvm_arch_vm_ioctl(filp, ioctl, arg);
 	}

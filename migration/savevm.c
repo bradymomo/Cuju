@@ -1379,7 +1379,12 @@ void qemu_savevm_state_complete_precopy(QEMUFile *f, bool iterable_only)
             trace_savevm_section_skip(se->idstr, se->section_id);
             continue;
         }
-
+    #ifdef ASYNC_INIT_MIGRATION
+		if ((strstr(se->idstr, "kvm-tpr-opt"))||
+			(strstr(se->idstr, "virtio-net"))||
+			(strstr(se->idstr, "virtio-blk")))
+			continue;
+    #endif
         trace_savevm_section_start(se->idstr, se->section_id);
 
         json_start_object(vmdesc, NULL);
@@ -2771,7 +2776,7 @@ void qemu_file_get_notify(void *opaque)
         f->last_error = ret;
 }
 
-int qemu_savevm_trans_complete_precopy_advanced(struct CUJUFTDev *ftdev, int more)
+int qemu_savevm_trans_complete_precopy_advanced(struct CUJUFTDev *ftdev, int more, bool fake_ft_mode)
 {
     QJSON *vmdesc;
     SaveStateEntry *se;
@@ -2801,6 +2806,7 @@ int qemu_savevm_trans_complete_precopy_advanced(struct CUJUFTDev *ftdev, int mor
 			
 		if ((strstr(se->idstr, "virtio-net"))||
             (strstr(se->idstr, "virtio-blk"))||
+			(fake_ft_mode && (strstr(se->idstr, "kvm-tpr-opt")))||
 			(!strncmp(se->idstr, "kvmclock", 8))||
 			(!strncmp(se->idstr, "mc146818rtc", 11)))
         	dirty = 1;

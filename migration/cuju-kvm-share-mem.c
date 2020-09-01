@@ -998,6 +998,11 @@ int kvmft_write_protect_dirty_pages(int cur_index)
     return kvm_vm_ioctl(kvm_state, KVM_FT_WRITE_PROTECT_DIRTY, &cindex);
 }
 
+int kvmft_page_diff_start(bool page_diff_open)
+{
+    return kvm_vm_ioctl(kvm_state, KVM_START_PAGE_DIFF, &page_diff_open);
+}
+
 int kvm_shm_clear_dirty_bitmap(int cur_index)
 {
     __u32 cindex = cur_index;

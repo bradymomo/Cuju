@@ -39,6 +39,8 @@ static int page_transfer_offsets[3072];
 static int page_transfer_offsets_off = 0;
 #endif
 
+static bool startpagediff = true ;
+
 struct diff_and_tran_kthread_descriptor {
     struct kvm *kvm;
     int trans_index;
@@ -2392,7 +2394,12 @@ out:
     diff_req_list_clear(list);
     return ret;
 }
-
+int kvm_start_page_diff(struct kvm *kvm, bool page_diff_open)
+{
+    printk("%s pagediff change %d to %d \n", __func__, startpagediff, page_diff_open);
+    startpagediff = page_diff_open;
+    return startpagediff;
+}
 static int __diff_to_buf(unsigned long gfn, struct page *page1,
     struct page *page2, uint8_t *buf)
 {
@@ -2405,28 +2412,37 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
     header = (c16x8_header_t *)buf;
     block = buf + sizeof(*header);
 
+	//printk("transfer gfn = %lu pagediff %d \n", gfn, startpagediff);
+    //printk("pagediff %d\n", startpagediff);
+
     header->gfn = gfn << 12 | 1;
     memset(header->h, 0, sizeof(header->h));
-
-    kernel_fpu_begin();
-
-    for (i = 0; i < 4096; i += 32) {
-        if (memcmp_avx_32(backup + i, page + i)) {
-            header->h[i / 256] |= (1 << ((i % 256) / 32));
-            memcpy(block, page + i, 32);
-            block += 32;
-        }
-    }
-
-    kernel_fpu_end();
-
-    if (block == buf + sizeof(*header)) {
-		#ifdef ft_debug_mode_enable
-        printk("warning: not found diff page\n");
-		#endif
+    if (!startpagediff){
         memset(header->h, 0xff, 16 * sizeof(__u8));
         memcpy(block, page, 4096);
         block += 4096;
+    } else {
+        kernel_fpu_begin();
+
+        for (i = 0; i < 4096; i += 32) {
+            if (memcmp_avx_32(backup + i, page + i)) {
+                header->h[i / 256] |= (1 << ((i % 256) / 32));
+                memcpy(block, page + i, 32);
+                block += 32;
+            }
+        }
+
+        kernel_fpu_end();
+
+        if (block == buf + sizeof(*header)) {
+            #ifdef ft_debug_mode_enable
+            printk("warning: not found diff page\n");
+            #endif
+
+            memset(header->h, 0xff, 16 * sizeof(__u8));
+            memcpy(block, page, 4096);
+            block += 4096;
+        }
     }
 
     kunmap_atomic(backup);
@@ -3201,6 +3217,7 @@ unsigned long kvm_get_put_off(struct kvm *kvm, int cur_index){
 	struct kvmft_dirty_list *dlist;
     struct kvmft_context *ctx = &kvm->ft_context;
 	dlist = ctx->page_nums_snapshot_k[cur_index];
+	//printk("dlist->put_off = %d\n", dlist->put_off);
 	return dlist->put_off;
 }
 

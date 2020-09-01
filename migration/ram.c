@@ -788,6 +788,7 @@ static int ram_save_page(QEMUFile *f, PageSearchStatus *pss,
 
     /* XBZRLE overflow or normal page */
     if (pages == -1) {
+        //printf("%s %lu\n", block->idstr, block->offset + offset);
         *bytes_transferred += save_page_header(f, block,
                                                offset | RAM_SAVE_FLAG_PAGE);
         if (send_async) {
@@ -1340,7 +1341,16 @@ static int ram_find_and_save_block(QEMUFile *f, bool last_stage,
     if (!pss.block) {
         pss.block = QLIST_FIRST_RCU(&ram_list.blocks);
     }
-
+    #ifdef ASYNC_INIT_MIGRATION
+    //Because some specific guest OS img can't not work well after failover  
+    //while sending pc.ram gfn175-190 at the fakeft part.
+    //So,we need to send pc.ram gfn 0-200 here first and send other at the fakeft part 
+    //to avoid the above problem.
+    if (strcmp(pss.block->idstr, "pc.ram") == 0 && ((pss.block->offset + pss.offset) >> TARGET_PAGE_BITS) >= 201) {
+        pss.offset = 0;
+        pss.block = QLIST_NEXT_RCU(pss.block, next);
+    }
+    #endif
     do {
         again = true;
         found = get_queued_page(ms, &pss, &dirty_ram_abs);
@@ -2066,7 +2076,7 @@ static int ram_save_complete(QEMUFile *f, void *opaque)
 
         pages = ram_find_and_save_block(f, !migration_in_colo_state(),
                                         &bytes_transferred);
-        /* no more blocks to sent */
+        // no more blocks to sent 
         if (pages == 0) {
             break;
         }

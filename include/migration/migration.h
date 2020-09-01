@@ -27,6 +27,8 @@
 #define CUJU_FT_DEV_INIT_BUF (8*1024*1024)
 #define CUJU_FT_DEV_STATE_ENTRY_SIZE 55
 
+#define ASYNC_INIT_MIGRATION 
+
 struct CUJUFTDev
 {
     QEMUFile *ft_dev_file;
@@ -475,8 +477,8 @@ void cuju_migration_channel_connect(MigrationState *s,
                                const char *hostname);
 
 void alloc_ft_dev(MigrationState *s);
-int migrate_save_device_states_to_memory_advanced(void *opaque, int more);
-int qemu_savevm_trans_complete_precopy_advanced(struct CUJUFTDev *ftdev, int more);
+int migrate_save_device_states_to_memory_advanced(void *opaque, int more, bool fake_ft_mode);
+int qemu_savevm_trans_complete_precopy_advanced(struct CUJUFTDev *ftdev, int more, bool fake_ft_mode);
 void qemu_savevm_state_complete_precopy_part1(QEMUFile *f);
 void qemu_savevm_state_complete_precopy_part2(QEMUFile *f);
 void migrate_ft_trans_send_device_state_header(struct CUJUFTDev *ftdev, QEMUFile *f);

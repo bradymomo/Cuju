@@ -155,5 +155,7 @@ void kvmft_gva_spcl_unprotect_page(struct kvm *kvm, unsigned long gfn);
 int kvmft_ioctl_set_master_slave_sockets(struct kvm *kvm,
     struct kvmft_set_master_slave_sockets *socks);
 
+int kvm_start_page_diff(struct kvm *kvm, bool page_diff_open);
+
 #endif
 

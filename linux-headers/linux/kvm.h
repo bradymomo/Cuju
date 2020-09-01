@@ -1388,6 +1388,7 @@ struct kvm_shmem_mark_page_dirty {
 #define KVM_SHM_ADJUST_EPOCH              _IOW(KVMIO,  0xca, __u32)
 #define KVM_GET_PUT_OFF              	  _IOW(KVMIO,  0xd1, int)
 #define KVM_RESET_PUT_OFF                 _IOW(KVMIO,  0xd2, int)
+#define KVM_START_PAGE_DIFF               _IOW(KVMIO, 0xd3, bool)
 
 struct kvm_shmem_extend {
   // output from kvm to qemu
@@ -1418,6 +1419,8 @@ struct kvmft_set_master_slave_sockets {
 #define KVM_GET_ITH_DLIST_ELEMENT         _IOW(KVMIO,  0xdc, struct cur_off_and_i) 
 
 #define KVM_SHM_CANCEL_TIMER       _IO(KVMIO, 0xdd)
+
+
 
 #define KVM_DEV_ASSIGN_ENABLE_IOMMU	(1 << 0)
 #define KVM_DEV_ASSIGN_PCI_2_3		(1 << 1)

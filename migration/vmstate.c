@@ -322,8 +322,7 @@ void vmstate_save_state(QEMUFile *f, const VMStateDescription *vmsd,
             int i, n_elems = vmstate_n_elems(opaque, field);
             int size = vmstate_size(opaque, field);
             int64_t old_offset, written_bytes;
-            QJSON *vmdesc_loop = vmdesc;
-            
+            QJSON *vmdesc_loop = vmdesc;         
             if(strcmp(field->name,"vq")==0 && kvmft_started()){
                 VirtIODevice *vdev;
                 vdev = opaque;
