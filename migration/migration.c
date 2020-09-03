@@ -3076,7 +3076,10 @@ static int migrate_ft_trans_get_ready(void *opaque)
             goto error_out;
         }
 
+    #ifdef DLIST_TEST_MODE
         kvmft_calc_ram_hash();
+    #endif
+    
 there:
         migrate_set_ft_state(s, CUJU_FT_TRANSACTION_PRE_RUN);
 
