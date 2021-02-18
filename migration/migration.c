@@ -4567,17 +4567,29 @@ int gft_init(int port)
 {
     char host_port[32]; // format will be 0:4445
     Error *err = NULL;
-
+    SocketAddress* sa;
     sprintf(host_port, "0:%d", port);
     FTPRINTF("host_port : %s\n", host_port);
-    SocketAddress* sa = socket_parse(host_port, &err);
-    if (err) {
-        error_report_err(err);
-    }
-    group_ft_master_sock = socket_listen(sa, &err);
-    if (err) {
-        error_report_err(err);
-    }
+    do{
+        err = NULL;
+        sa = socket_parse(host_port, &err);
+        if (err) {
+            error_report_err(err);
+        }
+        group_ft_master_sock = socket_listen(sa, &err);
+        if (err){
+            if(strstr(error_get_pretty(err), "Address already in use")){
+                port++;
+                sprintf(host_port, "0:%d", port);
+                continue;  
+            }else {
+                error_report_err(err);
+                break;
+            }  
+        }
+        printf("GFT port %d\n", port);
+    }while(err);
+
     // group_ft_master_sock = inet_listen(host_port, NULL, 256, SOCK_STREAM, 0, &err);
     if (group_ft_master_sock <= 0)
         return -1;
@@ -4587,7 +4599,7 @@ int gft_init(int port)
                         NULL,
                         (void *)(uintptr_t)group_ft_master_sock);
     qemu_set_fd_survive_ft_pause(group_ft_master_sock, true);
-    return 0;
+    return port;
 }
 /**
  * gft_leader_broadcast_all_migration_done : iterate all group_ft_sockets

@@ -4725,7 +4725,8 @@ int main(int argc, char **argv, char **envp)
 #ifdef KVM_SHARE_MEM
     kvm_share_mem_init(ram_size);
 #endif
-    assert(!gft_init(ft_join_port));
+    ft_join_port = gft_init(ft_join_port);
+    assert(ft_join_port != -1);
 	printf("VM init finished\n");
 
     main_loop();
